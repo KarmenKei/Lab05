@@ -1,74 +1,55 @@
 package edu.cmu.cs.cs214.rec02;
 
+import static org.junit.Assert.*;
+
+import java.util.List;
+import java.util.NoSuchElementException;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.*;
-
 /**
- * Unit tests for the {@link IntQueue} implementation.
- * Tests are for ArrayIntQueue class.
- * Write your own unit tests for the methods of ArrayIntQueue.
+ * Unit tests for {@link IntQueue} implementations.
+ *
+ * This suite tests both {@link LinkedIntQueue} and {@link ArrayIntQueue}.
+ * 
+ * @author Alex Lockwood, George Guo, Terry Li
  */
 public class IntQueueTest {
 
     private IntQueue mQueue;
     private List<Integer> testList;
 
-    /**
-     * Called before each test.
-     */
     @Before
     public void setUp() {
-        // Use ArrayIntQueue for testing
+        // Comment/uncomment to switch between implementations
+        // mQueue = new LinkedIntQueue();
         mQueue = new ArrayIntQueue();
 
-        testList = new ArrayList<>(List.of(1, 2, 3));
+        testList = List.of(1, 2, 3);
     }
 
     @Test
     public void testIsEmpty() {
-        // The queue should be empty initially
         assertTrue(mQueue.isEmpty());
-        mQueue.enqueue(1);  // Add an element
-        assertFalse(mQueue.isEmpty());  // The queue shouldn't be empty after enqueue
+    }
+
+    @Test
+    public void testNotEmpty() {
+        mQueue.enqueue(1);
+        assertFalse(mQueue.isEmpty());
     }
 
     @Test
     public void testPeekEmptyQueue() {
-        try {
-            mQueue.peek();  // Attempting to peek into an empty queue
-            fail("Expected exception for empty queue");  // Test should fail if no exception is thrown
-        } catch (EmptyQueueException e) {
-            // Expected exception, test passes
-        }
+        assertNull(mQueue.peek());
     }
 
     @Test
     public void testPeekNonEmptyQueue() {
         mQueue.enqueue(1);
         mQueue.enqueue(2);
-        assertEquals(Integer.valueOf(1), mQueue.peek());  // Peek should return the front element (1)
-    }
-
-    @Test
-    public void testEnqueue() {
-        for (int i = 0; i < testList.size(); i++) {
-            mQueue.enqueue(testList.get(i));
-            assertEquals(testList.get(0), mQueue.peek());  // Peek should return the first element
-            assertEquals(i + 1, mQueue.size());  // The size should increment with each enqueue
-        }
-    }
-
-    @Test
-    public void testDequeue() {
-        mQueue.enqueue(1);
-        mQueue.enqueue(2);
-        assertEquals(Integer.valueOf(1), mQueue.dequeue());  // Dequeue should return the front element (1)
-        assertEquals(1, mQueue.size());  // Size should be 1 after one dequeue
+        assertEquals(Integer.valueOf(1), mQueue.peek());
+        assertEquals(Integer.valueOf(1), mQueue.peek());  // Should remain unchanged
     }
 
     @Test
@@ -76,7 +57,120 @@ public class IntQueueTest {
         mQueue.enqueue(1);
         mQueue.enqueue(2);
         mQueue.clear();
-        assertTrue(mQueue.isEmpty());  // Queue should be empty after clear
-        assertEquals(0, mQueue.size());  // Size should be 0
+        assertTrue(mQueue.isEmpty());
+        assertNull(mQueue.peek());
+    }
+
+    @Test
+    public void testEnsureCapacity() {
+        for (int i = 0; i < 16; i++) {  
+            mQueue.enqueue(i);
+        }
+        assertEquals(16, mQueue.size());
+
+        // Trigger a resize
+        mQueue.enqueue(16);
+        assertEquals(17, mQueue.size());
+        assertEquals(Integer.valueOf(0), mQueue.peek());
+
+        // Ensure correct order after resizing
+        for (int i = 0; i <= 16; i++) {
+            assertEquals(Integer.valueOf(i), mQueue.dequeue());
+        }
+
+        assertTrue(mQueue.isEmpty());
+    }
+
+    @Test
+    public void testSequentialOperations() {
+        assertTrue(mQueue.isEmpty());
+
+        mQueue.enqueue(1);
+        mQueue.enqueue(2);
+        assertEquals(Integer.valueOf(1), mQueue.dequeue());
+
+        mQueue.enqueue(3);
+        assertEquals(Integer.valueOf(2), mQueue.peek());
+
+        assertEquals(Integer.valueOf(2), mQueue.dequeue());
+        assertEquals(Integer.valueOf(3), mQueue.dequeue());
+
+        assertTrue(mQueue.isEmpty());
+    }
+
+    @Test
+    public void testEnqueue() {
+        for (int i = 0; i < testList.size(); i++) {
+            mQueue.enqueue(testList.get(i));
+            assertEquals(testList.get(0), mQueue.peek());  // First element remains at front
+            assertEquals(i + 1, mQueue.size());
+        }
+    }
+
+    @Test
+    public void testDequeue() {
+        mQueue.enqueue(1);
+        mQueue.enqueue(2);
+        assertEquals(Integer.valueOf(1), mQueue.dequeue());
+        assertEquals(Integer.valueOf(2), mQueue.dequeue());
+        assertTrue(mQueue.isEmpty());
+    }
+
+    @Test
+    public void testResizePreservesOrder() {
+        for (int i = 1; i <= 15; i++) {
+            mQueue.enqueue(i);
+        }
+        assertEquals(15, mQueue.size());
+
+        // Resize should happen here
+        mQueue.enqueue(16);
+        assertEquals(16, mQueue.size());
+
+        // Dequeue should return elements in correct order
+        for (int i = 1; i <= 16; i++) {
+            assertEquals(Integer.valueOf(i), mQueue.dequeue());
+        }
+
+        assertTrue(mQueue.isEmpty());
+    }
+    
+    @Test
+    public void testWrapAroundResize() {
+        ArrayIntQueue queue = new ArrayIntQueue();
+        
+        for (int i = 0; i < 10; i++) {
+            queue.enqueue(i);
+        }
+
+        queue.dequeue();  // Removes 0
+        queue.dequeue();  // Removes 1
+        queue.dequeue();  // Removes 2
+
+        queue.enqueue(10);
+        queue.enqueue(11);
+        queue.enqueue(12);
+
+        // Add another element to force **resizing**
+        queue.enqueue(13);  // Triggers the resize
+
+        assertEquals(Integer.valueOf(3), queue.dequeue());  // Next expected element
+        assertEquals(Integer.valueOf(4), queue.dequeue());  // Ensures correct shift
+
+        // Verify all elements remain in correct order
+        for (int i = 5; i <= 13; i++) {
+            assertEquals(Integer.valueOf(i), queue.dequeue());
+        }
+
+        // Queue should be empty now
+        assertTrue(queue.isEmpty());
+    }
+    
+    @Test(expected = NoSuchElementException.class)
+    public void testDequeueEmptyQueue() {
+        // Ensure queue is empty
+        mQueue.clear();
+        // This should throw NoSuchElementException
+        mQueue.dequeue();
     }
 }
